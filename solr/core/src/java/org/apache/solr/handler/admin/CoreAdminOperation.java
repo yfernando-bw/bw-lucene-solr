@@ -18,6 +18,7 @@ package org.apache.solr.handler.admin;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -864,6 +865,14 @@ enum CoreAdminOperation {
 
       try (SolrCore core = callInfo.handler.coreContainer.getCore(cname)) {
         SnapShooter snapShooter = new SnapShooter(core, location, name);
+        // validateCreateSnapshot will create parent dirs instead of throw; that choice is dubious.
+        //  But we want to throw. One reason is that
+        //  this dir really should, in fact must, already exist here if triggered via a collection backup on a shared
+        //  file system. Otherwise, perhaps the FS location isn't shared -- we want an error.
+        if (!Files.exists(snapShooter.getLocation())) {
+          throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
+              "Directory to contain snapshots doesn't exist: " + snapShooter.getLocation().toAbsolutePath());
+        }
         snapShooter.validateCreateSnapshot();
         snapShooter.createSnapshot();
       } catch (Exception e) {

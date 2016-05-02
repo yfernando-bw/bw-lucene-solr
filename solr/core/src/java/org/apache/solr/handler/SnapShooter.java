@@ -19,6 +19,8 @@ package org.apache.solr.handler;
 import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +60,7 @@ public class SnapShooter {
   private String snapshotName = null;
   private String directoryName = null;
   private File snapShotDir = null;
+  //TODO update to NIO Path API
 
   public SnapShooter(SolrCore core, String location, String snapshotName) {
     solrCore = core;
@@ -77,6 +80,11 @@ public class SnapShooter {
     }
   }
 
+  /** Gets the parent directory of the snapshots.  This is the {@code location} given in the constructor after
+   * being resolved against the core instance dir. */
+  public Path getLocation() {
+    return Paths.get(snapDir);
+  }
 
   public void validateDeleteSnapshot() {
     boolean dirFound = false;
@@ -107,7 +115,7 @@ public class SnapShooter {
       throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
           "Snapshot directory already exists: " + snapShotDir.getAbsolutePath());
     }
-    if (!snapShotDir.mkdirs()) {
+    if (!snapShotDir.mkdirs()) { // note: TODO reconsider mkdirs vs mkdir
       throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
           "Unable to create snapshot directory: " + snapShotDir.getAbsolutePath());
     }
