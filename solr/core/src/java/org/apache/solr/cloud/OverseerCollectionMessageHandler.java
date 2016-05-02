@@ -2195,7 +2195,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler 
     }
     Files.createDirectory(backupPath); // create now
 
-    log.info("Starting backup of collection={} with snapshotName={} at location={}", collectionName, backupName,
+    log.info("Starting backup of collection={} with backupName={} at location={}", collectionName, backupName,
         backupPath);
 
     for (Slice slice : zkStateReader.getClusterState().getCollection(collectionName).getActiveSlices()) {
@@ -2210,13 +2210,13 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler 
       params.set(CORE_NAME_PROP, coreName);
 
       sendShardRequest(replica.getNodeName(), params, shardHandler, asyncId, requestMap);
-      log.debug("Sent backup request to core={} for snapshotName={}", coreName, backupName);
+      log.debug("Sent backup request to core={} for backupName={}", coreName, backupName);
     }
-    log.debug("Sent backup requests to all shard leaders for snapshotName={}", backupName);
+    log.debug("Sent backup requests to all shard leaders for backupName={}", backupName);
 
     processResponses(results, shardHandler, true, "Could not backup all replicas", asyncId, requestMap);
 
-    log.info("Starting to backup ZK data for snapshotName={}", backupName);
+    log.info("Starting to backup ZK data for backupName={}", backupName);
 
     //Download the configs
     String configName = zkStateReader.readConfigName(collectionName);
@@ -2232,7 +2232,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler 
     Path propertiesPath = backupPath.resolve("backup.properties");
     Properties properties = new Properties();
 
-    properties.put("snapshotName", backupName);
+    properties.put("backupName", backupName);
     properties.put("collection", collectionName);
     properties.put("collection.configName", configName);
     properties.put("startTime", startTime.toString());
@@ -2244,7 +2244,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler 
       properties.store(os, "Snapshot properties file");
     }
 
-    log.info("Completed backing up ZK data for snapshotName={}", backupName);
+    log.info("Completed backing up ZK data for backupName={}", backupName);
   }
 
   private void processRestoreAction(ZkNodeProps message, NamedList results) throws IOException, KeeperException, InterruptedException {
@@ -2415,7 +2415,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler 
       }
     }
 
-    log.info("Completed restoring collection={} snapshotName={}", restoreCollection, backupName);
+    log.info("Completed restoring collection={} backupName={}", restoreCollection, backupName);
   }
 
   private void processResponses(NamedList results, ShardHandler shardHandler, boolean abortOnError, String msgOnError,
