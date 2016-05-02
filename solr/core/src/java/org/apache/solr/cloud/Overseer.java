@@ -370,10 +370,6 @@ public class Overseer implements Closeable {
             return Collections.singletonList(new CollectionMutator(reader).modifyCollection(clusterState, message));
           case MIGRATESTATEFORMAT:
             return Collections.singletonList(new ClusterStateMutator(reader).migrateStateFormat(clusterState, message));
-          case RESTORE: // nocommit needs explaination
-            break;
-          case BACKUP:
-            break;
           default:
             throw new RuntimeException("unknown operation:" + operation
                 + " contents:" + message.getProperties());
