@@ -16,10 +16,7 @@
  */
 package org.apache.solr.store.blockcache;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -29,8 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BlockDirectoryCache implements Cache {
   private final BlockCache blockCache;
   private final AtomicInteger counter = new AtomicInteger();
-  private final Map<String,Integer> names = new ConcurrentHashMap<>();
-  private Set<BlockCacheKey> keysToRelease;
+  private final Map<String,Integer> names = new ConcurrentHashMap<>(8192, 0.75f, 512);
+  private final boolean releaseBlocks;
   private final String path;
   private final Metrics metrics;
   
@@ -42,9 +39,7 @@ public class BlockDirectoryCache implements Cache {
     this.blockCache = blockCache;
     this.path = path;
     this.metrics = metrics;
-    if (releaseBlocks) {
-      keysToRelease = Collections.synchronizedSet(new HashSet<BlockCacheKey>());
-    }
+    this.releaseBlocks = releaseBlocks;
   }
   
   /**
@@ -73,9 +68,7 @@ public class BlockDirectoryCache implements Cache {
     blockCacheKey.setPath(path);
     blockCacheKey.setBlock(blockId);
     blockCacheKey.setFile(file);
-    if (blockCache.store(blockCacheKey, blockOffset, buffer, offset, length) && keysToRelease != null) {
-      keysToRelease.add(blockCacheKey);
-    }
+    blockCache.store(blockCacheKey, blockOffset, buffer, offset, length);
   }
   
   @Override
@@ -115,10 +108,8 @@ public class BlockDirectoryCache implements Cache {
 
   @Override
   public void releaseResources() {
-    if (keysToRelease != null) {
-      for (BlockCacheKey key : keysToRelease) {
-        blockCache.release(key);
-      }
+    if (releaseBlocks) {
+      blockCache.releaseByPath(path);
     }
   }
 }
