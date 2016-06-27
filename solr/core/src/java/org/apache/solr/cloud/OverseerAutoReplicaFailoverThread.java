@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import org.apache.commons.lang.StringUtils;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CoreAdminRequest.Create;
 import org.apache.solr.common.SolrException;
@@ -42,6 +43,7 @@ import org.apache.solr.common.cloud.Replica;
 import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.core.CloudConfig;
+import org.apache.solr.update.UpdateLog;
 import org.apache.solr.update.UpdateShardHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -239,7 +241,8 @@ public class OverseerAutoReplicaFailoverThread implements Runnable, Closeable {
     // behavior of these cores as they won't respond to changes
     // in the solr.hdfs.home sys prop as they would have.
     final String dataDir = badReplica.replica.getStr("dataDir");
-    final String ulogDir = badReplica.replica.getStr("ulogDir");
+    // The stored ulogDir is expected to be the parent dir in which the tlog dir is created
+    final String ulogDir = StringUtils.removeEnd(badReplica.replica.getStr("ulogDir"), UpdateLog.TLOG_NAME);
     final String coreNodeName = badReplica.replica.getName();
     if (dataDir != null) {
       // need an async request - full shard goes down leader election
