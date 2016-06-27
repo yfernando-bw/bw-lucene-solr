@@ -83,7 +83,7 @@ public class BlockCache {
   }
   
   public void releaseByPath(String path) {
-    ArrayList<BlockCacheKey> keySetCopy = new ArrayList<>(cache.keySet());
+    ArrayList<BlockCacheKey> keySetCopy = new ArrayList<>(cache.asMap().keySet());
     for (BlockCacheKey key : keySetCopy) {
       if (key.getPath().equals(path)) {
         release(key);
