@@ -17,6 +17,7 @@
 package org.apache.solr.store.blockcache;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -81,6 +82,15 @@ public class BlockCache {
     cache.invalidate(key);
   }
   
+  public void releaseByPath(String path) {
+    ArrayList<BlockCacheKey> keySetCopy = new ArrayList<>(cache.asMap().keySet());
+    for (BlockCacheKey key : keySetCopy) {
+      if (key.getPath().equals(path)) {
+        release(key);
+      }
+    }
+  }
+
   private void releaseLocation(BlockCacheLocation location) {
     if (location == null) {
       return;
