@@ -79,21 +79,21 @@ public class ImplicitSnitch extends Snitch implements CoreAdminHandler.Invocable
     if (params.size() > 0) ctx.invokeRemote(solrNode, params, ImplicitSnitch.class.getName(), null);
   }
 
-  static long getUsableSpaceInGB() throws IOException {
-    long space = Files.getFileStore(Paths.get("/")).getUsableSpace();
+  static long getUsableSpaceInGB(String path) throws IOException {
+    long space = Files.getFileStore(Paths.get(path)).getUsableSpace();
     long spaceInGB = space / 1024 / 1024 / 1024;
     return spaceInGB;
   }
 
   public Map<String, Object> invoke(SolrQueryRequest req) {
     Map<String, Object> result = new HashMap<>();
+    CoreContainer cc = (CoreContainer) req.getContext().get(CoreContainer.class.getName());
     if (req.getParams().getInt(CORES, -1) == 1) {
-      CoreContainer cc = (CoreContainer) req.getContext().get(CoreContainer.class.getName());
       result.put(CORES, cc.getCoreNames().size());
     }
     if (req.getParams().getInt(DISK, -1) == 1) {
       try {
-        final long spaceInGB = getUsableSpaceInGB();
+        final long spaceInGB = getUsableSpaceInGB(cc.getSolrHome());
         result.put(DISK, spaceInGB);
       } catch (IOException e) {
 
