@@ -27,11 +27,17 @@
   </configurations>
 
   <dependencies>
-    <dependency org="log4j" name="log4j" rev="${/log4j/log4j}" conf="logging"/>
     <dependency org="org.slf4j" name="slf4j-api" rev="${/org.slf4j/slf4j-api}" conf="logging"/>
     <dependency org="org.slf4j" name="jcl-over-slf4j" rev="${/org.slf4j/jcl-over-slf4j}" conf="logging"/>
     <dependency org="org.slf4j" name="jul-to-slf4j" rev="${/org.slf4j/jul-to-slf4j}" conf="logging"/> 
-    <dependency org="org.slf4j" name="slf4j-log4j12" rev="${/org.slf4j/slf4j-log4j12}" conf="logging"/>
+    <dependency org="ch.qos.logback" name="logback-core" rev="1.1.3" conf="logging"/>
+    <dependency org="ch.qos.logback" name="logback-classic" rev="1.1.3" conf="logging"/>
+    <dependency org="ch.qos.logback" name="logback-access" rev="1.1.3" conf="logging"/>
+    <dependency org="net.logstash.logback" name="logstash-logback-encoder" rev="4.6" conf="logging"/>
+    <dependency org="com.fasterxml.jackson.core" name="jackson-databind" rev="2.5.4" conf="logging"/>
+    <dependency org="com.fasterxml.jackson.core" name="jackson-annotations" rev="2.5.0" conf="logging"/>
+    <dependency org="com.fasterxml.jackson.core" name="jackson-core" rev="2.5.4" conf="logging"/>
+    <dependency org="org.slf4j" name="log4j-over-slf4j" rev="${/org.slf4j/slf4j-api}" conf="logging"/>
 
     <dependency org="io.dropwizard.metrics" name="metrics-core" rev="${/io.dropwizard.metrics/metrics-core}" conf="metrics" />
     <dependency org="io.dropwizard.metrics" name="metrics-jetty9" rev="${/io.dropwizard.metrics/metrics-jetty9}" conf="metrics" />
