@@ -73,6 +73,7 @@ done
 SOLR_TIP=`dirname "$SOLR_SCRIPT"`/..
 SOLR_TIP=`cd "$SOLR_TIP"; pwd`
 DEFAULT_SERVER_DIR="$SOLR_TIP/server"
+MAX_RETRIES=10
 
 # If an include wasn't specified in the environment, then search for one...
 if [ -z "$SOLR_INCLUDE" ]; then
@@ -153,6 +154,10 @@ if [ -n "$SOLR_SSL_KEY_STORE" ]; then
   fi
 else
   SOLR_JETTY_CONFIG+=("--module=http")
+fi
+
+if [ -n "$SOLR_JETTY_ADDITIONAL_CONFIG" ]; then
+  SOLR_JETTY_CONFIG+=($SOLR_JETTY_ADDITIONAL_CONFIG)
 fi
 
 # Authentication options
@@ -483,7 +488,7 @@ function jetty_port() {
 function run_tool() {
 
   "$JAVA" $SOLR_SSL_OPTS $AUTHC_OPTS $SOLR_ZK_CREDS_AND_ACLS -Dsolr.install.dir="$SOLR_TIP" \
-    -Dlog4j.configuration="file:$DEFAULT_SERVER_DIR/scripts/cloud-scripts/log4j.properties" \
+    -Dlogback.configurationFile="file:$DEFAULT_SERVER_DIR/scripts/cloud-scripts/logback.xml" \
     -classpath "$DEFAULT_SERVER_DIR/solr-webapp/webapp/WEB-INF/lib/*:$DEFAULT_SERVER_DIR/lib/ext/*" \
     org.apache.solr.util.SolrCLI "$@"
 
@@ -548,11 +553,18 @@ function stop_solr() {
   SOLR_PID="$4"
 
   if [ "$SOLR_PID" != "" ]; then
-    echo -e "Sending stop command to Solr running on port $SOLR_PORT ... waiting 5 seconds to allow Jetty process $SOLR_PID to stop gracefully."
-    "$JAVA" $SOLR_SSL_OPTS $AUTHC_OPTS -jar "$DIR/start.jar" "STOP.PORT=$STOP_PORT" "STOP.KEY=$STOP_KEY" --stop || true
-    (sleep 5) &
-    spinner $!
-    rm -f "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
+    for retry in $(seq 1 $MAX_RETRIES)
+    do
+        echo -e "Retry $retry: Sending stop command to Solr running on port $SOLR_PORT ... waiting 5 seconds to allow Jetty process $SOLR_PID to stop gracefully."
+        "$JAVA" $SOLR_SSL_OPTS $AUTHC_OPTS -jar "$DIR/start.jar" "STOP.PORT=$STOP_PORT" "STOP.KEY=$STOP_KEY" --stop || true
+        (sleep 5) &
+        spinner $!
+        CHECK_PID=`ps auxww | awk '{print $2}' | grep -w $SOLR_PID | sort -r | tr -d ' '`
+        if [ "$CHECK_PID" == "" ]; then
+           rm -f "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
+          break
+        fi
+    done
   else
     echo -e "No Solr nodes found to stop."
     exit 0
@@ -1295,20 +1307,24 @@ else
   fi
 fi
 
-# This is quite hacky, but examples rely on a different log4j.properties
+# This is quite hacky, but examples rely on a different logback.xml
 # so that we can write logs for examples to $SOLR_HOME/../logs
 if [ -z "$SOLR_LOGS_DIR" ]; then
   SOLR_LOGS_DIR="$SOLR_SERVER_DIR/logs"
 fi
 EXAMPLE_DIR="$SOLR_TIP/example"
 if [ "${SOLR_HOME:0:${#EXAMPLE_DIR}}" = "$EXAMPLE_DIR" ]; then
-  LOG4J_PROPS="$EXAMPLE_DIR/resources/log4j.properties"
+  LOGBACK_XML="$EXAMPLE_DIR/resources/logback.xml"
   SOLR_LOGS_DIR="$SOLR_HOME/../logs"
 fi
 
-LOG4J_CONFIG=()
-if [ -n "$LOG4J_PROPS" ]; then
-  LOG4J_CONFIG+=("-Dlog4j.configuration=file:$LOG4J_PROPS")
+LOGBACK_CONFIG=()
+if [ -n "$LOGBACK_XML" ]; then
+  LOGBACK_CONFIG+=("-Dlogback.configurationFile=$LOGBACK_XML")
+fi
+
+if [ -z "$SOLR_CONSOLE_LOGS_PATTERN" ]; then
+  SOLR_CONSOLE_LOGS_PATTERN="solr-$SOLR_PORT-console.log"
 fi
 
 if [ "$SCRIPT_CMD" == "stop" ]; then
@@ -1503,7 +1519,7 @@ function launch_solr() {
     "-Djetty.port=$SOLR_PORT" "-DSTOP.PORT=$stop_port" "-DSTOP.KEY=$STOP_KEY" \
     "${SOLR_HOST_ARG[@]}" "-Duser.timezone=$SOLR_TIMEZONE" \
     "-Djetty.home=$SOLR_SERVER_DIR" "-Dsolr.solr.home=$SOLR_HOME" "-Dsolr.install.dir=$SOLR_TIP" \
-    "${LOG4J_CONFIG[@]}" "${SOLR_OPTS[@]}")
+    "${LOGBACK_CONFIG[@]}" "${SOLR_OPTS[@]}")
 
   if [ "$SOLR_MODE" == "solrcloud" ]; then
     IN_CLOUD_MODE=" in SolrCloud mode"
@@ -1519,7 +1535,7 @@ function launch_solr() {
     nohup "$JAVA" "${SOLR_START_OPTS[@]}" $SOLR_ADDL_ARGS \
 	"-XX:OnOutOfMemoryError=$SOLR_TIP/bin/oom_solr.sh $SOLR_PORT $SOLR_LOGS_DIR" \
         -jar start.jar "${SOLR_JETTY_CONFIG[@]}" \
-	1>"$SOLR_LOGS_DIR/solr-$SOLR_PORT-console.log" 2>&1 & echo $! > "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
+	  1>"$SOLR_LOGS_DIR/$SOLR_CONSOLE_LOGS_PATTERN" 2>&1 & echo $! > "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
 
     # no lsof on cygwin though
     if hash lsof 2>/dev/null ; then  # hash returns true if lsof is on the path
