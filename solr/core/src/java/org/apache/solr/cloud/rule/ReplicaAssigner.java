@@ -100,7 +100,6 @@ public class ReplicaAssigner {
     this.participatingLiveNodes = new ArrayList<>(participatingLiveNodes);
     this.nodeVsTags = getTagsForNodes(cc, snitches);
     this.shardVsNodes = getDeepCopy(shardVsNodes, 2);
-    validateTags(nodeVsTags);
 
     if (clusterState != null) {
       Map<String, DocCollection> collections = clusterState.getCollectionsMap();
@@ -281,21 +280,6 @@ public class ReplicaAssigner {
     return result;
   }
 
-  private void validateTags(Map<String, Map<String, Object>> nodeVsTags) {
-    List<String> errors = new ArrayList<>();
-    for (Rule rule : rules) {
-      for (Map.Entry<String, Map<String, Object>> e : nodeVsTags.entrySet()) {
-        if (e.getValue().get(rule.tag.name) == null) {
-          errors.add(formatString("The value for tag {0} is not available for node {1}", rule.tag.name, e.getKey()));
-        }
-      }
-    }
-    if (!errors.isEmpty()) {
-      throw new SolrException(SolrException.ErrorCode.BAD_REQUEST, StrUtils.join(errors, ','));
-    }
-  }
-
-
   /**
    * get all permutations for the int[] whose items are 0..level
    */
@@ -422,14 +406,12 @@ public class ReplicaAssigner {
           context.exception = new SolrException(SolrException.ErrorCode.SERVER_ERROR,
               "Not all tags were obtained from node " + node);
         } else {
-          if (context.getTags().keySet().containsAll(context.snitchInfo.getTagNames())) {
-            Map<String, Object> tags = result.get(node);
-            if (tags == null) {
-              tags = new HashMap<>();
-              result.put(node, tags);
-            }
-            tags.putAll(context.getTags());
+          Map<String, Object> tags = result.get(node);
+          if (tags == null) {
+            tags = new HashMap<>();
+            result.put(node, tags);
           }
+          tags.putAll(context.getTags());
         }
       }
     }
