@@ -231,6 +231,10 @@ else
   SOLR_JETTY_CONFIG+=("--module=http")
 fi
 
+if [ -n "$SOLR_JETTY_ADDITIONAL_CONFIG" ]; then
+  SOLR_JETTY_CONFIG+=($SOLR_JETTY_ADDITIONAL_CONFIG)
+fi
+
 # Authentication options
 if [ "$SOLR_AUTHENTICATION_CLIENT_CONFIGURER" != "" ]; then
   AUTHC_CLIENT_CONFIGURER_ARG="-Dsolr.authentication.httpclient.configurer=$SOLR_AUTHENTICATION_CLIENT_CONFIGURER"
@@ -568,7 +572,7 @@ function jetty_port() {
 function run_tool() {
 
   "$JAVA" $SOLR_SSL_OPTS $AUTHC_OPTS $SOLR_ZK_CREDS_AND_ACLS -Dsolr.install.dir="$SOLR_TIP" \
-    -Dlog4j.configuration="file:$DEFAULT_SERVER_DIR/scripts/cloud-scripts/log4j.properties" \
+    -Dlogback.configurationFile="file:$DEFAULT_SERVER_DIR/scripts/cloud-scripts/logback.xml" \
     -classpath "$DEFAULT_SERVER_DIR/solr-webapp/webapp/WEB-INF/lib/*:$DEFAULT_SERVER_DIR/lib/ext/*" \
     org.apache.solr.util.SolrCLI "$@"
 
@@ -1449,20 +1453,24 @@ else
   fi
 fi
 
-# This is quite hacky, but examples rely on a different log4j.properties
+# This is quite hacky, but examples rely on a different logback.xml
 # so that we can write logs for examples to $SOLR_HOME/../logs
 if [ -z "$SOLR_LOGS_DIR" ]; then
   SOLR_LOGS_DIR="$SOLR_SERVER_DIR/logs"
 fi
 EXAMPLE_DIR="$SOLR_TIP/example"
 if [ "${SOLR_HOME:0:${#EXAMPLE_DIR}}" = "$EXAMPLE_DIR" ]; then
-  LOG4J_PROPS="$EXAMPLE_DIR/resources/log4j.properties"
+  LOGBACK_XML="$EXAMPLE_DIR/resources/logback.xml"
   SOLR_LOGS_DIR="$SOLR_HOME/../logs"
 fi
 
-LOG4J_CONFIG=()
-if [ -n "$LOG4J_PROPS" ]; then
-  LOG4J_CONFIG+=("-Dlog4j.configuration=file:$LOG4J_PROPS")
+LOGBACK_CONFIG=()
+if [ -n "$LOGBACK_XML" ]; then
+  LOGBACK_CONFIG+=("-Dlogback.configurationFile=$LOGBACK_XML")
+fi
+
+if [ -z "$SOLR_CONSOLE_LOGS_PATTERN" ]; then
+  SOLR_CONSOLE_LOGS_PATTERN="solr-$SOLR_PORT-console.log"
 fi
 
 if [ "$SCRIPT_CMD" == "stop" ]; then
@@ -1677,7 +1685,7 @@ function launch_solr() {
     "-Djetty.port=$SOLR_PORT" "-DSTOP.PORT=$stop_port" "-DSTOP.KEY=$STOP_KEY" \
     "${SOLR_HOST_ARG[@]}" "-Duser.timezone=$SOLR_TIMEZONE" \
     "-Djetty.home=$SOLR_SERVER_DIR" "-Dsolr.solr.home=$SOLR_HOME" "-Dsolr.install.dir=$SOLR_TIP" \
-    "${LOG4J_CONFIG[@]}" "${SOLR_OPTS[@]}")
+    "${LOGBACK_CONFIG[@]}" "${SOLR_OPTS[@]}")
 
   if [ "$SOLR_MODE" == "solrcloud" ]; then
     IN_CLOUD_MODE=" in SolrCloud mode"
@@ -1706,7 +1714,7 @@ function launch_solr() {
     nohup "$JAVA" "${SOLR_START_OPTS[@]}" $SOLR_ADDL_ARGS -Dsolr.log.muteconsole \
 	"-XX:OnOutOfMemoryError=$SOLR_TIP/bin/oom_solr.sh $SOLR_PORT $SOLR_LOGS_DIR" \
         -jar start.jar "${SOLR_JETTY_CONFIG[@]}" \
-	1>"$SOLR_LOGS_DIR/solr-$SOLR_PORT-console.log" 2>&1 & echo $! > "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
+	1>"$SOLR_LOGS_DIR/$SOLR_CONSOLE_LOGS_PATTERN" 2>&1 & echo $! > "$SOLR_PID_DIR/solr-$SOLR_PORT.pid"
 
     # no lsof on cygwin though
     if hash lsof 2>/dev/null ; then  # hash returns true if lsof is on the path
