@@ -58,6 +58,7 @@ import static org.apache.solr.update.processor.DistributingUpdateProcessorFactor
  *         <code>true</code>, but if set to <code>false</code> then Atomic Updates
  *          will be passed through unchanged regardless of whether the document exists.</li>
  * </ul>
+ *     These params can also be specified per-request, to override the behaviour for specific updates.
  * <p>
  *     This implementation is a simpler alternative to <code>DocBasedVersionConstraintsProcessorFactory</code>
  *     when you are not concerned with versioning, and just want to quietly ignore duplicate documents and/or
@@ -67,22 +68,25 @@ import static org.apache.solr.update.processor.DistributingUpdateProcessorFactor
 public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcessorFactory implements SolrCoreAware, UpdateRequestProcessorFactory.RunAlways {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+  private static final String PARAM_SKIP_INSERT_IF_EXISTS = "skipInsertIfExists";
+  private static final String PARAM_SKIP_UPDATE_IF_MISSING = "skipUpdateIfMissing";
+
   private boolean skipInsertIfExists = true;
   private boolean skipUpdateIfMissing = true;
 
   @Override
   public void init( NamedList args )  {
-    Object tmp = args.remove("skipInsertIfExists");
+    Object tmp = args.remove(PARAM_SKIP_INSERT_IF_EXISTS);
     if (null != tmp) {
       if (! (tmp instanceof Boolean) ) {
-        throw new SolrException(SERVER_ERROR, "'skipInsertIfExists' must be configured as a <bool>");
+        throw new SolrException(SERVER_ERROR, "'" + PARAM_SKIP_INSERT_IF_EXISTS + "' must be configured as a <bool>");
       }
       skipInsertIfExists = (Boolean)tmp;
     }
-    tmp = args.remove("skipUpdateIfMissing");
+    tmp = args.remove(PARAM_SKIP_UPDATE_IF_MISSING);
     if (null != tmp) {
       if (! (tmp instanceof Boolean) ) {
-        throw new SolrException(SERVER_ERROR, "'skipUpdateIfMissing' must be configured as a <bool>");
+        throw new SolrException(SERVER_ERROR, "'" + PARAM_SKIP_UPDATE_IF_MISSING + "' must be configured as a <bool>");
       }
       skipUpdateIfMissing = (Boolean)tmp;
     }
@@ -93,7 +97,14 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
   public UpdateRequestProcessor getInstance(SolrQueryRequest req,
                                             SolrQueryResponse rsp,
                                             UpdateRequestProcessor next ) {
-    return new SkipExistingDocumentsUpdateProcessor(req, next, skipInsertIfExists, skipUpdateIfMissing);
+    // Ensure the parameters are forwarded to the leader
+    DistributedUpdateProcessorFactory.addParamToDistributedRequestWhitelist(req, PARAM_SKIP_INSERT_IF_EXISTS, PARAM_SKIP_UPDATE_IF_MISSING);
+
+    // Allow the particular request to override the plugin's configured behaviour
+    boolean skipInsertForRequest = req.getOriginalParams().getBool(PARAM_SKIP_INSERT_IF_EXISTS, this.skipInsertIfExists);
+    boolean skipUpdateForRequest = req.getOriginalParams().getBool(PARAM_SKIP_UPDATE_IF_MISSING, this.skipUpdateIfMissing);
+
+    return new SkipExistingDocumentsUpdateProcessor(req, next, skipInsertForRequest, skipUpdateForRequest);
   }
 
   @Override
