@@ -199,9 +199,7 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
     public void processAdd(AddUpdateCommand cmd) throws IOException {
       BytesRef indexedDocId = cmd.getIndexedId();
 
-      boolean leader = isLeader(cmd);
       boolean isUpdate = AtomicUpdateDocumentMerger.isAtomicUpdate(cmd);
-      boolean docExists = doesDocumentExist(indexedDocId);
 
       // boolean existsByLookup = (RealTimeGetComponent.getInputDocument(core, indexedDocId) != null);
       // if (docExists != existsByLookup) {
@@ -210,17 +208,17 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
 
       if (log.isDebugEnabled()) {
         log.debug("Document ID {} ... exists already? {} ... isAtomicUpdate? {} ... isLeader? {}",
-                  indexedDocId.utf8ToString(), docExists, isUpdate, leader);
+                  indexedDocId.utf8ToString(), doesDocumentExist(indexedDocId), isUpdate, isLeader(cmd));
       }
 
-      if (leader && skipInsertIfExists && !isUpdate && docExists) {
+      if (skipInsertIfExists && !isUpdate && isLeader(cmd) && doesDocumentExist(indexedDocId)) {
         if (log.isDebugEnabled()) {
           log.debug("Skipping insert for pre-existing document ID {}", indexedDocId.utf8ToString());
         }
         return;
       }
 
-      if (leader && skipUpdateIfMissing && isUpdate && !docExists) {
+      if (skipUpdateIfMissing && isUpdate && isLeader(cmd) && !doesDocumentExist(indexedDocId)) {
         if (log.isDebugEnabled()) {
           log.debug("Skipping update to non-existent document ID {}", indexedDocId.utf8ToString());
         }
