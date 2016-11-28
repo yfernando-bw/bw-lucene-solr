@@ -16,6 +16,8 @@
  */
 package org.apache.solr.update;
 
+import static java.lang.Integer.parseInt;
+
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -53,8 +55,7 @@ public class UpdateShardHandler {
   private ExecutorService updateExecutor = ExecutorUtil.newMDCAwareCachedThreadPool(
       new SolrjNamedThreadFactory("updateExecutor"));
   
-  private ExecutorService recoveryExecutor = ExecutorUtil.newMDCAwareCachedThreadPool(
-      new SolrjNamedThreadFactory("recoveryExecutor"));
+  private ExecutorService recoveryExecutor;
   
   private PoolingClientConnectionManager clientConnectionManager;
 
@@ -83,6 +84,14 @@ public class UpdateShardHandler {
       idleConnectionsEvictor.start();
     }
     log.trace("Created UpdateShardHandler HTTP client with params: {}", clientParams);
+
+    ThreadFactory recoveryThreadFactory = new SolrjNamedThreadFactory("recoveryExecutor");
+    String maxRecoveryThreads = System.getProperty("solr.recovery.threads");
+    if (maxRecoveryThreads != null) {
+      recoveryExecutor = ExecutorUtil.newMDCAwareFixedThreadPool(parseInt(maxRecoveryThreads), recoveryThreadFactory);
+    } else {
+      recoveryExecutor = ExecutorUtil.newMDCAwareCachedThreadPool(recoveryThreadFactory);
+    }
   }
 
   protected ModifiableSolrParams getClientParams() {
