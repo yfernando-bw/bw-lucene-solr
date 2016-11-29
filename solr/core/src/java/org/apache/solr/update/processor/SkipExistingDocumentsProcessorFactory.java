@@ -75,7 +75,7 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
   private boolean skipUpdateIfMissing = true;
 
   @Override
-  public void init( NamedList args )  {
+  public void init(NamedList args)  {
     Object tmp = args.remove(PARAM_SKIP_INSERT_IF_EXISTS);
     if (null != tmp) {
       if (! (tmp instanceof Boolean) ) {
@@ -94,9 +94,10 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
     super.init(args);
   }
 
-  public UpdateRequestProcessor getInstance(SolrQueryRequest req,
-                                            SolrQueryResponse rsp,
-                                            UpdateRequestProcessor next ) {
+  @Override
+  public SkipExistingDocumentsUpdateProcessor getInstance(SolrQueryRequest req,
+                                                          SolrQueryResponse rsp,
+                                                          UpdateRequestProcessor next) {
     // Ensure the parameters are forwarded to the leader
     DistributedUpdateProcessorFactory.addParamToDistributedRequestWhitelist(req, PARAM_SKIP_INSERT_IF_EXISTS, PARAM_SKIP_UPDATE_IF_MISSING);
 
@@ -119,7 +120,7 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
     }
   }
 
-  private static class SkipExistingDocumentsUpdateProcessor extends UpdateRequestProcessor {
+  static class SkipExistingDocumentsUpdateProcessor extends UpdateRequestProcessor {
 
     private final boolean skipInsertIfExists;
     private final boolean skipUpdateIfMissing;
@@ -150,8 +151,16 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
 
       phase = DistributedUpdateProcessor.DistribPhase.parseParam(req.getParams().get(DISTRIB_UPDATE_PARAM));
     }
-    
-    private boolean doesDocumentExist(BytesRef indexedDocId) throws IOException {
+
+    boolean isSkipInsertIfExists() {
+      return this.skipInsertIfExists;
+    }
+
+    boolean isSkipUpdateIfMissing() {
+      return this.skipUpdateIfMissing;
+    }
+
+    boolean doesDocumentExist(BytesRef indexedDocId) throws IOException {
       assert null != indexedDocId;
 
       SolrInputDocument oldDoc = RealTimeGetComponent.getInputDocumentFromTlog(core, indexedDocId);
@@ -176,7 +185,7 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
       }
     }
 
-    private boolean isLeader(UpdateCommand cmd) {
+    boolean isLeader(UpdateCommand cmd) {
       if ((cmd.getFlags() & (UpdateCommand.REPLAY | UpdateCommand.PEER_SYNC)) != 0) {
         return false;
       }
@@ -190,9 +199,7 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
     public void processAdd(AddUpdateCommand cmd) throws IOException {
       BytesRef indexedDocId = cmd.getIndexedId();
 
-      boolean leader = isLeader(cmd);
       boolean isUpdate = AtomicUpdateDocumentMerger.isAtomicUpdate(cmd);
-      boolean docExists = doesDocumentExist(indexedDocId);
 
       // boolean existsByLookup = (RealTimeGetComponent.getInputDocument(core, indexedDocId) != null);
       // if (docExists != existsByLookup) {
@@ -201,17 +208,17 @@ public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcesso
 
       if (log.isDebugEnabled()) {
         log.debug("Document ID {} ... exists already? {} ... isAtomicUpdate? {} ... isLeader? {}",
-                  indexedDocId.utf8ToString(), docExists, isUpdate, leader);
+                  indexedDocId.utf8ToString(), doesDocumentExist(indexedDocId), isUpdate, isLeader(cmd));
       }
 
-      if (leader && skipInsertIfExists && !isUpdate && docExists) {
+      if (skipInsertIfExists && !isUpdate && isLeader(cmd) && doesDocumentExist(indexedDocId)) {
         if (log.isDebugEnabled()) {
           log.debug("Skipping insert for pre-existing document ID {}", indexedDocId.utf8ToString());
         }
         return;
       }
 
-      if (leader && skipUpdateIfMissing && isUpdate && !docExists) {
+      if (skipUpdateIfMissing && isUpdate && isLeader(cmd) && !doesDocumentExist(indexedDocId)) {
         if (log.isDebugEnabled()) {
           log.debug("Skipping update to non-existent document ID {}", indexedDocId.utf8ToString());
         }
