@@ -47,9 +47,7 @@ import static org.apache.solr.update.processor.DistributingUpdateProcessorFactor
  *     ignored, depending on what is already in the index. If all of the documents are skipped, no changes
  *     to the index will occur.
  * </p>
- * <p>
- *     These two forms of skipping can be switched on or off independently, by using init params:
- * </p>
+ * These two forms of skipping can be switched on or off independently, by using init params:
  * <ul>
  *     <li><code>skipInsertIfExists</code> - This boolean parameter defaults to
  *          <code>true</code>, but if set to <code>false</code> then inserts (i.e. not Atomic Updates)
@@ -58,12 +56,34 @@ import static org.apache.solr.update.processor.DistributingUpdateProcessorFactor
  *         <code>true</code>, but if set to <code>false</code> then Atomic Updates
  *          will be passed through unchanged regardless of whether the document exists.</li>
  * </ul>
- *     These params can also be specified per-request, to override the behaviour for specific updates.
  * <p>
- *     This implementation is a simpler alternative to <code>DocBasedVersionConstraintsProcessorFactory</code>
- *     when you are not concerned with versioning, and just want to quietly ignore duplicate documents and/or
- *     silently skip updates to non-existent documents (in the same way a database UPDATE would).
+ *     These params can also be specified per-request, to override the configured behaviour
+ *     for specific updates e.g. <code>/update?skipUpdateIfMissing=true</code>
  * </p>
+ * <p>
+ *     This implementation is a simpler alternative to {@link DocBasedVersionConstraintsProcessorFactory}
+ *     when you are not concerned with versioning, and just want to quietly ignore duplicate documents and/or
+ *     silently skip updates to non-existent documents (in the same way a database <code>UPDATE</code> would).
+ *
+ *     If your documents do have an explicit version field, and you want to ensure older versions are
+ *     skipped instead of replacing the indexed document, you should consider {@link DocBasedVersionConstraintsProcessorFactory}
+ *     instead.
+ * </p>
+ * <p>
+ *     An example chain configuration to use this for skipping duplicate inserts, but not skipping updates to
+ *     missing documents by default, is:
+ * </p>
+ * <pre class="prettyprint">
+ * &lt;updateRequestProcessorChain name="skipexisting"&gt;
+ *   &lt;processor class="solr.LogUpdateProcessorFactory" /&gt;
+ *   &lt;processor class="solr.SkipExistingDocumentsProcessorFactory"&gt;
+ *     &lt;bool name="skipInsertIfExists"&gt;true&lt;/bool&gt;
+ *     &lt;bool name="skipUpdateIfMissing"&gt;false&lt;/bool&gt; &lt;!-- Can override this per-request --&gt;
+ *   &lt;/processor&gt;
+ *   &lt;processor class="solr.DistributedUpdateProcessorFactory" /&gt;
+ *   &lt;processor class="solr.RunUpdateProcessorFactory" /&gt;
+ * &lt;/updateRequestProcessorChain&gt;
+ * </pre>
  */
 public class SkipExistingDocumentsProcessorFactory extends UpdateRequestProcessorFactory implements SolrCoreAware, UpdateRequestProcessorFactory.RunAlways {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
