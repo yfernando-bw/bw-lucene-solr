@@ -16,8 +16,6 @@
  */
 package org.apache.solr.update;
 
-import static java.lang.Integer.parseInt;
-
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -86,10 +84,11 @@ public class UpdateShardHandler {
     log.trace("Created UpdateShardHandler HTTP client with params: {}", clientParams);
 
     ThreadFactory recoveryThreadFactory = new SolrjNamedThreadFactory("recoveryExecutor");
-    String maxRecoveryThreads = System.getProperty("solr.recovery.threads");
-    if (maxRecoveryThreads != null) {
-      recoveryExecutor = ExecutorUtil.newMDCAwareFixedThreadPool(parseInt(maxRecoveryThreads), recoveryThreadFactory);
+    if (cfg != null && cfg.getMaxRecoveryThreads() > 0) {
+      log.info("Creating recoveryExecutor with pool size {}", cfg.getMaxRecoveryThreads());
+      recoveryExecutor = ExecutorUtil.newMDCAwareFixedThreadPool(cfg.getMaxRecoveryThreads(), recoveryThreadFactory);
     } else {
+      log.info("Creating recoveryExecutor with unbounded pool");
       recoveryExecutor = ExecutorUtil.newMDCAwareCachedThreadPool(recoveryThreadFactory);
     }
   }

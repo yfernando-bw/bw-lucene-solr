@@ -24,11 +24,13 @@ public class UpdateShardHandlerConfig {
   public static final int DEFAULT_MAXUPDATECONNECTIONSPERHOST = 100000;
   public static final int DEFAULT_UPDATECONNECTIONSEVICTORSLEEPDELAY = 5000;
   public static final int DEFAULT_MAXUPDATECONNECTIONIDLETIME = 40000;
+  public static final int DEFAULT_MAXRECOVERYTHREADS = -1;
 
   public static final UpdateShardHandlerConfig DEFAULT
       = new UpdateShardHandlerConfig(DEFAULT_MAXUPDATECONNECTIONS, DEFAULT_MAXUPDATECONNECTIONSPERHOST,
                                      DEFAULT_DISTRIBUPDATESOTIMEOUT, DEFAULT_DISTRIBUPDATECONNTIMEOUT,
-                                      DEFAULT_UPDATECONNECTIONSEVICTORSLEEPDELAY, DEFAULT_MAXUPDATECONNECTIONIDLETIME);
+                                     DEFAULT_UPDATECONNECTIONSEVICTORSLEEPDELAY, DEFAULT_MAXUPDATECONNECTIONIDLETIME,
+                                     DEFAULT_MAXRECOVERYTHREADS);
 
   private final int maxUpdateConnections;
 
@@ -42,13 +44,17 @@ public class UpdateShardHandlerConfig {
 
   private final int maxUpdateConnectionIdleTime;
 
-  public UpdateShardHandlerConfig(int maxUpdateConnections, int maxUpdateConnectionsPerHost, int distributedSocketTimeout, int distributedConnectionTimeout, int updateConnectionsEvictorSleepDelay, int maxUpdateConnectionIdleTime) {
+  private final int maxRecoveryThreads;
+
+  public UpdateShardHandlerConfig(int maxUpdateConnections, int maxUpdateConnectionsPerHost, int distributedSocketTimeout, int distributedConnectionTimeout,
+                                  int updateConnectionsEvictorSleepDelay, int maxUpdateConnectionIdleTime, int maxRecoveryThreads) {
     this.maxUpdateConnections = maxUpdateConnections;
     this.maxUpdateConnectionsPerHost = maxUpdateConnectionsPerHost;
     this.distributedSocketTimeout = distributedSocketTimeout;
     this.distributedConnectionTimeout = distributedConnectionTimeout;
     this.updateConnectionsEvictorSleepDelay = updateConnectionsEvictorSleepDelay;
     this.maxUpdateConnectionIdleTime = maxUpdateConnectionIdleTime;
+    this.maxRecoveryThreads = maxRecoveryThreads;
   }
 
   public int getMaxUpdateConnectionsPerHost() {
@@ -73,5 +79,9 @@ public class UpdateShardHandlerConfig {
 
   public int getMaxUpdateConnectionIdleTime() {
     return maxUpdateConnectionIdleTime;
+  }
+
+  public int getMaxRecoveryThreads() {
+    return maxRecoveryThreads;
   }
 }
