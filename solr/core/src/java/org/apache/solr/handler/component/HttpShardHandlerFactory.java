@@ -73,6 +73,24 @@ import org.apache.solr.util.stats.MetricUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.solr.util.stats.InstrumentedHttpRequestExecutor.KNOWN_METRIC_NAME_STRATEGIES;
+
 
 public class HttpShardHandlerFactory extends ShardHandlerFactory implements org.apache.solr.util.plugin.PluginInfoInitialized, SolrMetricProducer {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -232,9 +250,7 @@ public class HttpShardHandlerFactory extends ShardHandlerFactory implements org.
       r.setSeed(Long.parseLong(v));
     }
 
-    BlockingQueue<Runnable> blockingQueue = (this.queueSize == -1) ?
-        new SynchronousQueue<Runnable>(this.accessPolicy) :
-        new ArrayBlockingQueue<Runnable>(this.queueSize, this.accessPolicy);
+    BlockingQueue<Runnable> blockingQueue = getBlockingQueue();
 
     this.commExecutor = new ExecutorUtil.MDCAwareThreadPoolExecutor(
         this.corePoolSize,
@@ -249,6 +265,21 @@ public class HttpShardHandlerFactory extends ShardHandlerFactory implements org.
     clientConnectionManager = new InstrumentedPoolingHttpClientConnectionManager(HttpClientUtil.getSchemaRegisteryProvider().getSchemaRegistry());
     this.defaultClient = HttpClientUtil.createClient(clientParams, clientConnectionManager, false, httpRequestExecutor);
     this.loadbalancer = createLoadbalancer(defaultClient);
+  }
+
+  private BlockingQueue<Runnable> getBlockingQueue() {
+    if (this.queueSize == -1) {
+      if (this.maximumPoolSize == Integer.MAX_VALUE) {
+        return new SynchronousQueue<Runnable>(this.accessPolicy);
+      } else {
+        // A limited maximumPoolSize would result in new tasks being rejected
+        // once the pool is full, with SynchronousQueue, so it's better to accept
+        // as many as we're offered and let the pool work through them
+        return new LinkedBlockingQueue<>();
+      }
+    } else {
+      return new ArrayBlockingQueue<Runnable>(this.queueSize, this.accessPolicy);
+    }
   }
 
   protected ModifiableSolrParams getClientParams() {
