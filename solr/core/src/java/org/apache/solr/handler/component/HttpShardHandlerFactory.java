@@ -27,6 +27,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -194,9 +195,7 @@ public class HttpShardHandlerFactory extends ShardHandlerFactory implements org.
       r.setSeed(Long.parseLong(v));
     }
 
-    BlockingQueue<Runnable> blockingQueue = (this.queueSize == -1) ?
-        new SynchronousQueue<Runnable>(this.accessPolicy) :
-        new ArrayBlockingQueue<Runnable>(this.queueSize, this.accessPolicy);
+    BlockingQueue<Runnable> blockingQueue = getBlockingQueue();
 
     this.commExecutor = new ExecutorUtil.MDCAwareThreadPoolExecutor(
         this.corePoolSize,
@@ -224,6 +223,21 @@ public class HttpShardHandlerFactory extends ShardHandlerFactory implements org.
       ((DefaultHttpClient) this.defaultClient).setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler());
     }
     this.loadbalancer = createLoadbalancer(defaultClient);
+  }
+
+  private BlockingQueue<Runnable> getBlockingQueue() {
+    if (this.queueSize == -1) {
+      if (this.maximumPoolSize == Integer.MAX_VALUE) {
+        return new SynchronousQueue<Runnable>(this.accessPolicy);
+      } else {
+        // A limited maximumPoolSize would result in new tasks being rejected
+        // once the pool is full, with SynchronousQueue, so it's better to accept
+        // as many as we're offered and let the pool work through them
+        return new LinkedBlockingQueue<>();
+      }
+    } else {
+      return new ArrayBlockingQueue<Runnable>(this.queueSize, this.accessPolicy);
+    }
   }
 
   protected ModifiableSolrParams getClientParams() {
