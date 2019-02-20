@@ -276,7 +276,9 @@ public class TopDocsAgg extends AggValueSource {
     private int buildResultForSlot(Query slotQuery, int slot) throws IOException {
       BooleanQuery.Builder builder = new BooleanQuery.Builder();
       builder.add(query, BooleanClause.Occur.MUST);
-      builder.add(slotQuery, BooleanClause.Occur.FILTER);
+      if (slotQuery != null) {
+        builder.add(slotQuery, BooleanClause.Occur.FILTER);
+      }
       builder.add(fcontext.base.getTopFilter(), BooleanClause.Occur.FILTER);
       Query finalQuery = builder.build();
 

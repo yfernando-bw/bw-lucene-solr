@@ -1157,11 +1157,13 @@ public class TestJsonFacets extends SolrTestCaseHS {
             //      "top : 'topdocs(\"*:*\",0,3,\"${cat_s} desc\",\"id,*_s\")' " +
             //      "top : 'topdocs(\"*:*\")'" +
             //      "top : { topdocs : '${cat_s}:B' } " +
-            "topA : { type:topdocs, query:'${cat_s}:A', sort:'num_d desc', limit:10, fields:'id,*_s,mynum:${num_d}' } " +
-            ",topB: { type:topdocs, query:'${cat_s}:B', sort:'num_d desc', limit:10, fields:'id,*_s,mynum:${num_d}' } " +
+            "topA : { type:topdocs, query:'${cat_s}:A', sort:'num_d desc', limit:10, fields:'id,num_d,*_s,mynum:${num_d}' } " +
+            ",topB: { type:topdocs, query:'${cat_s}:B', sort:'num_d desc', limit:10, fields:'id,num_d,*_s,mynum:${num_d}' } " +
             "}"
         )
-        , "facets=={}"
+        , "facets/count==6"
+        , "facets/topA/numFound==2"
+        , "facets/topB/numFound==3"
     );
 
 
