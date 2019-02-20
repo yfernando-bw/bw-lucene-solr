@@ -1192,6 +1192,7 @@ public class QueryEqualityTest extends SolrTestCaseJ4 {
     assertFuncEquals("agg_variance(foo_i)", "agg_variance(foo_i)");
     assertFuncEquals("agg_stddev(foo_i)", "agg_stddev(foo_i)");
     // assertFuncEquals("agg_multistat(foo_i)", "agg_multistat(foo_i)");
+    assertFuncEquals("agg_topdocs()", "agg_topdocs()");
   }
 
   public void testCompares() throws Exception {
