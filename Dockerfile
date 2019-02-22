@@ -1,20 +1,12 @@
 FROM debian:jessie
 
 ARG buildn
-
-ARG stage
-ARG int
+ARG solr_version
+ARG aptly_pass
 
 ENV BUILD_NUMBER=$buildn
-ENV SOLR_VERSION=7.4.0
-
-
-ENV STAGE=$stage
-ENV INT=$int
-
-
-RUN echo $SOLR_VERSION
-RUN echo $BUILD_NUMBER
+ENV SOLR_VERSION=$solr_version
+ENV PASS=$aptly_pass
 
 USER root
 
@@ -71,6 +63,5 @@ RUN ant ivy-bootstrap && \
 WORKDIR /usr/local/bw-lucene-solr/solr/package
 
 
-RUN fpm --description "Brandwatch Solr distribution" --name solr -v $SOLR_VERSION-SNAPSHOT-bwbuild${BUILD_NUMBER} --prefix /opt -s tar -t deb solr-$SOLR_VERSION-SNAPSHOT.tgz
-RUN curl http://apt.service0.btn1.bwcom.net/packages -u $INT -F my_file=@solr_$SOLR_VERSION-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb -F name=solr_$SOLR_VERSION-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb
-RUN curl https://aptly.stage.brandwatch.net/packages -u $STAGE -F my_file=@solr_$SOLR_VERSION-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb -F name=solr_$SOLR_VERSION-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb
+RUN fpm --description "Brandwatch Solr distribution" --name solr -v ${SOLR_VERSION}-SNAPSHOT-bwbuild${BUILD_NUMBER} --prefix /opt -s tar -t deb solr-${SOLR_VERSION}-SNAPSHOT.tgz
+RUN curl http://apt0.infra0.btn1.bwcom.net:9095/publish -u ${PASS} -F "file=@solr_${SOLR_VERSION}-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb" -F "name=solr_${SOLR_VERSION}-SNAPSHOT-bwbuild${BUILD_NUMBER}_amd64.deb"
