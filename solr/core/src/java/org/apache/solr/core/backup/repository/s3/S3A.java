@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a;
+// package org.apache.hadoop.fs.s3a;
+package org.apache.solr.core.backup.repository.s3;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DelegateToFileSystem;
+import org.apache.hadoop.fs.s3a.S3AFileSystem;
 
 import java.io.IOException;
 import java.net.URI;
