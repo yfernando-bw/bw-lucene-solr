@@ -16,17 +16,9 @@
  */
 package org.apache.solr.handler.loader;
 
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.stream.FactoryConfigurationError;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.dom.DOMResult;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.sax.SAXSource;
+import static org.apache.solr.common.params.CommonParams.ID;
+import static org.apache.solr.common.params.CommonParams.NAME;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,7 +30,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.common.collect.Lists;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.dom.DOMResult;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.sax.SAXSource;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.solr.common.EmptyEntityResolver;
 import org.apache.solr.common.SolrException;
@@ -49,6 +52,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
+import org.apache.solr.common.util.Base64;
 import org.apache.solr.common.util.ContentStream;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.common.util.StrUtils;
@@ -69,11 +73,10 @@ import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
-import static org.apache.solr.common.params.CommonParams.ID;
-import static org.apache.solr.common.params.CommonParams.NAME;
-
+import com.google.common.collect.Lists;
 
 public class XMLLoader extends ContentStreamLoader {
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final AtomicBoolean WARNED_ABOUT_INDEX_TIME_BOOSTS = new AtomicBoolean();
   static final XMLErrorLogger xmllog = new XMLErrorLogger(log);
@@ -406,6 +409,7 @@ public class XMLLoader extends ContentStreamLoader {
     boolean isNull = false;
     boolean isLabeledChildDoc = false;
     String update = null;
+    boolean binary = false;
     Collection<SolrInputDocument> subDocs = null;
     Map<String, Map<String, Object>> updateMap = null;
     boolean complete = false;
@@ -429,7 +433,18 @@ public class XMLLoader extends ContentStreamLoader {
             break;
           } else if ("field".equals(parser.getLocalName())) {
             // should I warn in some text has been found too
-            Object v = isNull ? null : text.toString();
+            Object v;
+
+            if (isNull) {
+              v = null;
+            } else {
+              if (binary) {
+                v = Base64.base64ToByteArray(text.toString());
+              } else {
+                v = text.toString();
+              }
+            }
+
             if (update != null) {
               if (updateMap == null) updateMap = new HashMap<>();
               Map<String, Object> extendedValues = updateMap.get(name);
@@ -492,6 +507,7 @@ public class XMLLoader extends ContentStreamLoader {
             }
             update = null;
             isNull = false;
+            binary = false;
             String attrVal = "";
             for (int i = 0; i < parser.getAttributeCount(); i++) {
               attrName = parser.getAttributeLocalName(i);
@@ -509,6 +525,8 @@ public class XMLLoader extends ContentStreamLoader {
                 isNull = StrUtils.parseBoolean(attrVal);
               } else if ("update".equals(attrName)) {
                 update = attrVal;
+              } else if ("dt".equals(attrName)) {
+                binary = "binary.Base64".equals(attrVal);
               } else {
                 log.warn("XML element <field> has invalid XML attr: " + attrName);
               }

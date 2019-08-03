@@ -34,13 +34,11 @@ import org.apache.solr.common.util.ContentStream;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.common.util.XML;
 
-
 /**
  *
  * @since solr 1.3
  */
-public class ClientUtils 
-{
+public class ClientUtils {
   // Standard Content types
   public static final String TEXT_XML = "application/xml; charset=UTF-8";
   public static final String TEXT_JSON = "application/json; charset=UTF-8";
@@ -104,35 +102,51 @@ public class ClientUtils
     writer.write("</doc>");
   }
 
-  private static void writeVal(Writer writer, String name, Object v, String update) throws IOException {
+  private static void writeVal(Writer writer, String name, Object v, String update)
+      throws IOException {
+    boolean binary = false;
     if (v instanceof Date) {
-      v = ((Date)v).toInstant().toString();
+      v = ((Date) v).toInstant().toString();
     } else if (v instanceof byte[]) {
       byte[] bytes = (byte[]) v;
       v = Base64.byteArrayToBase64(bytes, 0, bytes.length);
+      binary = true;
     } else if (v instanceof ByteBuffer) {
       ByteBuffer bytes = (ByteBuffer) v;
-      v = Base64.byteArrayToBase64(bytes.array(), bytes.position(),bytes.limit() - bytes.position());
+      v = Base64.byteArrayToBase64(bytes.array(), bytes.position(), bytes.limit() - bytes.position());
+      binary = true;
     }
 
     XML.Writable valWriter = null;
-    if(v instanceof SolrInputDocument) {
+    if (v instanceof SolrInputDocument) {
       final SolrInputDocument solrDoc = (SolrInputDocument) v;
       valWriter = (writer1) -> writeXML(solrDoc, writer1);
-    } else if(v != null) {
-      final Object val = v;
-      valWriter = (writer1) -> XML.escapeCharData(val.toString(), writer1);
+    } else if (v != null) {
+      Object val = v;
+      if (binary) {
+        valWriter = (writer1) -> writer1.write((String) val);
+      } else {
+        valWriter = (writer1) -> XML.escapeCharData(val.toString(), writer1);
+      }
     }
 
     if (update == null) {
       if (v != null) {
-        XML.writeXML(writer, "field", valWriter, "name", name);
+        if (binary) {
+          XML.writeXML(writer, "field", valWriter, "name", name, "dt", "binary.Base64");
+        } else {
+          XML.writeXML(writer, "field", valWriter, "name", name);
+        }
       }
     } else {
-      if (v == null)  {
+      if (v == null) {
         XML.writeXML(writer, "field", (XML.Writable) null, "name", name, "update", update, "null", true);
-      } else  {
-        XML.writeXML(writer, "field", valWriter, "name", name, "update", update);
+      } else {
+        if (binary) {
+          XML.writeXML(writer, "field", valWriter, "name", name, "update", update, "dt", "binary.Base64");
+        } else {
+          XML.writeXML(writer, "field", valWriter, "name", name, "update", update);
+        }
       }
     }
   }
