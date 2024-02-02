@@ -91,8 +91,10 @@ public class DocumentObjectBinder {
           doc.setField(e.getKey(), e.getValue());
         }
       } else {
-        if (field.child != null) {
-          addChild(obj, field, doc);
+        if (field.child != null && field.annotation.anonymizeChild()) {
+          addAnonymousChild(obj, field, doc);
+        } else if (field.child != null) {
+          addNestedChild(obj, field, doc);
         } else {
           doc.setField(field.name, field.get(obj));
         }
@@ -101,7 +103,7 @@ public class DocumentObjectBinder {
     return doc;
   }
 
-  private void addChild(Object obj, DocField field, SolrInputDocument doc) {
+  private void addAnonymousChild(Object obj, DocField field, SolrInputDocument doc) {
     Object val = field.get(obj);
     if (val == null) return;
     if (val instanceof Collection) {
@@ -117,6 +119,31 @@ public class DocumentObjectBinder {
     } else {
       doc.addChildDocument(toSolrInputDocument(val));
     }
+  }
+
+  private void addNestedChild(Object obj, DocField field, SolrInputDocument doc) {
+    Object val = field.get(obj);
+    if (val == null) return;
+    if (val instanceof Collection) {
+      @SuppressWarnings({"rawtypes"})
+      Collection collection = (Collection) val;
+      List<SolrInputDocument> docs = new ArrayList<>(collection.size());
+      for (final Object o : collection) {
+        final SolrInputDocument inpDoc = toSolrInputDocument(o);
+        docs.add(inpDoc);
+      }
+      val = docs;
+    } else if (val.getClass().isArray()) {
+      Object[] objs = (Object[]) val;
+      SolrInputDocument[] docs = (SolrInputDocument[]) Array.newInstance(SolrInputDocument.class, objs.length);
+      for (int i = 0; i < objs.length; i++) {
+        docs[i] = toSolrInputDocument(objs[i]);
+      }
+      val = docs;
+    } else {
+      val = toSolrInputDocument(val);
+    }
+    doc.addField(field.name, val);
   }
 
   private List<DocField> getDocFields(@SuppressWarnings({"rawtypes"})Class clazz) {
@@ -146,7 +173,7 @@ public class DocumentObjectBinder {
       if (member.isAnnotationPresent(Field.class)) {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> { member.setAccessible(true); return null; });
         DocField df = new DocField(member);
-        if (df.child != null) {
+        if (df.child != null && df.annotation.anonymizeChild()) {
           if (childFieldFound)
             throw new BindingException(clazz.getName() + " cannot have more than one Field with child=true");
           childFieldFound = true;
@@ -334,7 +361,20 @@ public class DocumentObjectBinder {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Object getFieldValue(SolrDocument solrDocument) {
       if (child != null) {
-        List<SolrDocument> children = solrDocument.getChildDocuments();
+        List<SolrDocument> children = null;
+        if(solrDocument.hasChildDocuments()){
+          children = solrDocument.getChildDocuments();
+        } else if (!annotation.anonymizeChild()){
+          final Object val = solrDocument.getFieldValue(name);
+          if(val ==  null){
+            return null;
+          } else if (isList || isArray) {
+            children = (List<SolrDocument>) val;
+          } else {
+            children = new ArrayList<>();
+            children.add((SolrDocument) val);
+          }
+        }
         if (children == null || children.isEmpty()) return null;
         if (isList) {
           ArrayList list = new ArrayList(children.size());

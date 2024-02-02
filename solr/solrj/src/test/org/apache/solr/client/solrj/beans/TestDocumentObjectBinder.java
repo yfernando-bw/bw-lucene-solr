@@ -27,7 +27,9 @@ import org.apache.solr.common.util.NamedList;
 import org.junit.Test;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -151,10 +153,124 @@ public class TestDocumentObjectBinder extends SolrTestCase {
     assertEquals(arrIn.child[1].name, arrOut.child[1].name);
 
   }
+  public void testMappedChild() throws Exception {
+    DocumentObjectBinder binder = new DocumentObjectBinder();
+
+    Child childOne = new Child();
+    childOne.id = "1.1";
+    childOne.name = "Name One";
+    Child childTwo = new Child();
+    childTwo.id = "1.2";
+    childTwo.name = "Name Two";
+    Child childThree = new Child();
+    childThree.id = "1.3";
+    childThree.name = "Name Three";
+    Child childFour = new Child();
+    childFour.id = "1.4";
+    childFour.name = "Name Four";
+
+    SingleValueNestedChild nestedNullChildIn = new SingleValueNestedChild();
+    nestedNullChildIn.id = "1-null-child";
+    nestedNullChildIn.child = null;
+    SolrInputDocument nestedNullSolrInputDoc = binder.toSolrInputDocument(nestedNullChildIn);
+    SolrDocument nestedNullSolrDoc = toSolrDocument(nestedNullSolrInputDoc);
+    assertNull(nestedNullSolrInputDoc.getChildDocuments());
+    assertNull(nestedNullSolrDoc.getChildDocuments());
+    SingleValueNestedChild nestedNullChildOut = binder.getBean(SingleValueNestedChild.class, nestedNullSolrDoc);
+    assertEquals(nestedNullChildIn.id, nestedNullChildOut.id);
+    assertNull(nestedNullChildIn.child);
+    assertNull(nestedNullChildOut.child);
+
+    SingleValueNestedChild singleNestedIn = new SingleValueNestedChild();
+    singleNestedIn.id = "1";
+    singleNestedIn.child = childOne;
+    SolrInputDocument singleNestedSolrInputDoc = binder.toSolrInputDocument(singleNestedIn);
+    SolrDocument singleNestedSolrDoc = toSolrDocument(singleNestedSolrInputDoc);
+    assertNull(singleNestedSolrInputDoc.getChildDocuments());
+    assertNull(singleNestedSolrDoc.getChildDocuments());
+    SingleValueNestedChild singleNestedOut = binder.getBean(SingleValueNestedChild.class, singleNestedSolrDoc);
+    assertEquals(singleNestedIn.id, singleNestedOut.id);
+    assertEquals(singleNestedIn.child.id, singleNestedOut.child.id);
+    assertEquals(singleNestedIn.child.name, singleNestedOut.child.name);
+
+    ListNestedChild listNestedIn = new ListNestedChild();
+    listNestedIn.id = "2";
+    listNestedIn.child = Arrays.asList(childOne, childTwo);
+    SolrInputDocument listNestedSolrInputDoc = binder.toSolrInputDocument(listNestedIn);
+    SolrDocument listNestedSolrDoc = toSolrDocument(listNestedSolrInputDoc);
+    assertNull(listNestedSolrInputDoc.getChildDocuments());
+    assertNull(listNestedSolrDoc.getChildDocuments());
+    ListNestedChild listNestedOut = binder.getBean(ListNestedChild.class, listNestedSolrDoc);
+    assertEquals(listNestedIn.id, listNestedOut.id);
+    assertEquals(listNestedIn.child.get(0).id, listNestedOut.child.get(0).id);
+    assertEquals(listNestedIn.child.get(0).name, listNestedOut.child.get(0).name);
+    assertEquals(listNestedIn.child.get(1).id, listNestedOut.child.get(1).id);
+    assertEquals(listNestedIn.child.get(1).name, listNestedOut.child.get(1).name);
+
+    ArrayNestedChild arrayNestedIn = new ArrayNestedChild();
+    arrayNestedIn.id = "3";
+    arrayNestedIn.child = new Child[]{childOne, childTwo};
+    SolrInputDocument arrayNestedSolrInputDoc = binder.toSolrInputDocument(arrayNestedIn);
+    SolrDocument arrayNestedSolrDoc = toSolrDocument(arrayNestedSolrInputDoc);
+    assertNull(arrayNestedSolrInputDoc.getChildDocuments());
+    assertNull(arrayNestedSolrDoc.getChildDocuments());
+    ArrayNestedChild arrayNestedOut = binder.getBean(ArrayNestedChild.class, arrayNestedSolrDoc);
+    assertEquals(arrayNestedIn.id, arrayNestedOut.id);
+    assertEquals(arrayNestedIn.child[0].id, arrayNestedOut.child[0].id);
+    assertEquals(arrayNestedIn.child[0].name, arrayNestedOut.child[0].name);
+    assertEquals(arrayNestedIn.child[1].id, arrayNestedOut.child[1].id);
+    assertEquals(arrayNestedIn.child[1].name, arrayNestedOut.child[1].name);
+
+    MultipleNestedArrayChild multipleNestedIn = new MultipleNestedArrayChild();
+    multipleNestedIn.id = "4";
+    multipleNestedIn.favorite = childOne;
+    multipleNestedIn.bestChildren = new Child[]{childTwo, childThree};
+    multipleNestedIn.worstChildren = new Child[]{childFour};
+    SolrInputDocument multipleNestedSolrInputDoc = binder.toSolrInputDocument(multipleNestedIn);
+    SolrDocument multipleNestedSolrDoc = toSolrDocument(multipleNestedSolrInputDoc);
+    assertNull(multipleNestedSolrInputDoc.getChildDocuments());
+    assertNull(multipleNestedSolrDoc.getChildDocuments());
+    MultipleNestedArrayChild multipleNestedOut = binder.getBean(MultipleNestedArrayChild.class, multipleNestedSolrDoc);
+    assertEquals(multipleNestedIn.id, multipleNestedOut.id);
+    assertEquals(multipleNestedIn.favorite.id, multipleNestedOut.favorite.id);
+    assertEquals(multipleNestedIn.favorite.name, multipleNestedOut.favorite.name);
+    assertEquals(multipleNestedIn.bestChildren[0].id, multipleNestedOut.bestChildren[0].id);
+    assertEquals(multipleNestedIn.bestChildren[0].name, multipleNestedOut.bestChildren[0].name);
+    assertEquals(multipleNestedIn.bestChildren[1].id, multipleNestedOut.bestChildren[1].id);
+    assertEquals(multipleNestedIn.bestChildren[1].name, multipleNestedOut.bestChildren[1].name);
+    assertEquals(multipleNestedIn.worstChildren[0].id, multipleNestedOut.worstChildren[0].id);
+    assertEquals(multipleNestedIn.worstChildren[0].name, multipleNestedOut.worstChildren[0].name);
+  }
 
   private static SolrDocument toSolrDocument(SolrInputDocument d) {
     SolrDocument doc = new SolrDocument();
     for (SolrInputField field : d) {
+      if (field.getValue() != null) {
+        if (field.getValue() instanceof Collection) {
+          Collection<?> values = (Collection<?>) field.getValue();
+          if (!values.isEmpty() && values.iterator().next() instanceof SolrInputDocument) {
+            List<SolrDocument> docs = new ArrayList<>(values.size());
+            for (Object value : values) {
+              docs.add(toSolrDocument((SolrInputDocument) value));
+            }
+            doc.setField(field.getName(), docs);
+            continue;
+          }
+        } else if (field.getValue().getClass().isArray()) {
+          Object[] values = (Object[]) field.getValue();
+          if (values.length > 0 && values[0] instanceof SolrInputDocument) {
+            SolrDocument[] docs = new SolrDocument[values.length];
+            for (int i = 0; i < values.length; i++) {
+              docs[i] = toSolrDocument((SolrInputDocument) values[i]);
+            }
+            doc.setField(field.getName(), docs);
+            continue;
+          }
+        } else if (field.getValue() instanceof SolrInputDocument) {
+          doc.setField(field.getName(), toSolrDocument((SolrInputDocument) field.getValue()));
+          continue;
+        }
+      }
       doc.setField(field.getName(), field.getValue());
     }
     if (d.getChildDocuments() != null) {
@@ -245,7 +361,48 @@ public class TestDocumentObjectBinder extends SolrTestCase {
     @Field(child = true)
     Child[] child;
   }
-  
+
+  public static class SingleValueNestedChild {
+    @Field
+    String id;
+
+    @Field(child = true, anonymizeChild = false)
+    Child child;
+  }
+
+  public static class ListNestedChild {
+
+    @Field
+    String id;
+
+    @Field(child = true, anonymizeChild = false)
+    List<Child> child;
+  }
+
+  public static class ArrayNestedChild {
+
+    @Field
+    String id;
+
+    @Field(child = true, anonymizeChild = false)
+    Child[] child;
+  }
+
+  public static class MultipleNestedArrayChild {
+
+    @Field
+    String id;
+
+    @Field(child = true, anonymizeChild = false)
+    Child favorite;
+
+    @Field(child = true, anonymizeChild = false)
+    Child[] bestChildren;
+
+    @Field(child = true, anonymizeChild = false)
+    Child[] worstChildren;
+
+  }
 
   public static class NotGettableItem {
     @Field

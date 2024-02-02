@@ -34,5 +34,16 @@ import java.lang.annotation.Retention;
 @Retention(RUNTIME)
 public @interface Field {
   boolean child() default false;
+
+  /**
+   * When converting fields with the `@Field(child=true)` annotation, this will
+   * determine if they should be converted as an anonymized nested child document
+   * or as a regular (mapped) nested child document.
+   *
+   * If intending to use `AtomicUpdates` or `ChildDocumentTransformer`, this
+   * should be set to `false`.
+   */
+  boolean anonymizeChild() default true;
+
   String value() default DEFAULT;
 }
