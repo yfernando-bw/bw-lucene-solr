@@ -27,7 +27,9 @@ import org.apache.solr.common.util.NamedList;
 import org.junit.Test;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -151,10 +153,94 @@ public class TestDocumentObjectBinder extends SolrTestCase {
     assertEquals(arrIn.child[1].name, arrOut.child[1].name);
 
   }
+  public void testMappedChild() throws Exception {
+    SingleValueMappedChild in = new SingleValueMappedChild();
+    in.id = "1";
+    in.child = new Child();
+    in.child.id = "1.0";
+    in.child.name = "Name One";
+    DocumentObjectBinder binder = new DocumentObjectBinder();
+    SolrInputDocument solrInputDoc = binder.toSolrInputDocument(in);
+    SolrDocument solrDoc = toSolrDocument(solrInputDoc);
+    assertNull(solrInputDoc.getChildDocuments());
+    assertNull(solrDoc.getChildDocuments());
+    SingleValueMappedChild out = binder.getBean(SingleValueMappedChild.class, solrDoc);
+    assertEquals(in.id, out.id);
+    assertEquals(in.child.id, out.child.id);
+    assertEquals(in.child.name, out.child.name);
+
+    SingleValueMappedChild inNoChild = new SingleValueMappedChild();
+    in.id = "1-no-child";
+    SolrInputDocument solrInputDocNoChild = binder.toSolrInputDocument(inNoChild);
+    SolrDocument solrDocNoChild = toSolrDocument(solrInputDocNoChild);
+    assertNull(solrInputDocNoChild.getChildDocuments());
+    assertNull(solrDocNoChild.getChildDocuments());
+    SingleValueMappedChild outNoChild = binder.getBean(SingleValueMappedChild.class, solrDocNoChild);
+    assertEquals(inNoChild.id, outNoChild.id);
+    assertNull(inNoChild.child);
+    assertNull(outNoChild.child);
+
+    ListMappedChild listIn = new ListMappedChild();
+    listIn.id = "2";
+    Child child = new Child();
+    child.id = "1.1";
+    child.name = "Name Two";
+    listIn.child = Arrays.asList(in.child, child);
+    solrInputDoc = binder.toSolrInputDocument(listIn);
+    solrDoc = toSolrDocument(solrInputDoc);
+    assertNull(solrInputDoc.getChildDocuments());
+    assertNull(solrDoc.getChildDocuments());
+    ListMappedChild listOut = binder.getBean(ListMappedChild.class, solrDoc);
+    assertEquals(listIn.id, listOut.id);
+    assertEquals(listIn.child.get(0).id, listOut.child.get(0).id);
+    assertEquals(listIn.child.get(0).name, listOut.child.get(0).name);
+    assertEquals(listIn.child.get(1).id, listOut.child.get(1).id);
+    assertEquals(listIn.child.get(1).name, listOut.child.get(1).name);
+
+    ArrayMappedChild arrIn = new ArrayMappedChild();
+    arrIn.id = "3";
+    arrIn.child = new Child[]{in.child, child};
+    solrInputDoc = binder.toSolrInputDocument(arrIn);
+    solrDoc = toSolrDocument(solrInputDoc);
+    assertNull(solrInputDoc.getChildDocuments());
+    assertNull(solrDoc.getChildDocuments());
+    ArrayMappedChild arrOut = binder.getBean(ArrayMappedChild.class, solrDoc);
+    assertEquals(arrIn.id, arrOut.id);
+    assertEquals(arrIn.child[0].id, arrOut.child[0].id);
+    assertEquals(arrIn.child[0].name, arrOut.child[0].name);
+    assertEquals(arrIn.child[1].id, arrOut.child[1].id);
+    assertEquals(arrIn.child[1].name, arrOut.child[1].name);
+  }
 
   private static SolrDocument toSolrDocument(SolrInputDocument d) {
     SolrDocument doc = new SolrDocument();
     for (SolrInputField field : d) {
+      if (field.getValue() != null) {
+        if (field.getValue() instanceof Collection) {
+          Collection<?> values = (Collection<?>) field.getValue();
+          if (!values.isEmpty() && values.iterator().next() instanceof SolrInputDocument) {
+            List<SolrDocument> docs = new ArrayList<>(values.size());
+            for (Object value : values) {
+              docs.add(toSolrDocument((SolrInputDocument) value));
+            }
+            doc.setField(field.getName(), docs);
+            continue;
+          }
+        } else if (field.getValue().getClass().isArray()) {
+          Object[] values = (Object[]) field.getValue();
+          if (values.length > 0 && values[0] instanceof SolrInputDocument) {
+            SolrDocument[] docs = new SolrDocument[values.length];
+            for (int i = 0; i < values.length; i++) {
+              docs[i] = toSolrDocument((SolrInputDocument) values[i]);
+            }
+            doc.setField(field.getName(), docs);
+            continue;
+          }
+        } else if (field.getValue() instanceof SolrInputDocument) {
+          doc.setField(field.getName(), toSolrDocument((SolrInputDocument) field.getValue()));
+          continue;
+        }
+      }
       doc.setField(field.getName(), field.getValue());
     }
     if (d.getChildDocuments() != null) {
@@ -245,7 +331,32 @@ public class TestDocumentObjectBinder extends SolrTestCase {
     @Field(child = true)
     Child[] child;
   }
-  
+
+  public static class SingleValueMappedChild {
+    @Field
+    String id;
+
+    @Field
+    Child child;
+  }
+
+  public static class ListMappedChild {
+
+    @Field
+    String id;
+
+    @Field
+    List<Child> child;
+  }
+
+  public static class ArrayMappedChild {
+
+    @Field
+    String id;
+
+    @Field
+    Child[] child;
+  }
 
   public static class NotGettableItem {
     @Field

@@ -94,11 +94,64 @@ public class DocumentObjectBinder {
         if (field.child != null) {
           addChild(obj, field, doc);
         } else {
-          doc.setField(field.name, field.get(obj));
+          addField(obj, field, doc);
         }
       }
     }
     return doc;
+  }
+
+  private void addField(Object obj, DocField field, SolrInputDocument doc) {
+    Object val = field.get(obj);
+    if (val != null && isMappedObject(val)) {
+      if (val instanceof Collection) {
+        @SuppressWarnings({"rawtypes"})
+        Collection collection = (Collection) val;
+        List<SolrInputDocument> docs = new ArrayList<>(collection.size());
+        for (final Object o : collection) {
+          final SolrInputDocument inpDoc = toSolrInputDocument(o);
+          docs.add(inpDoc);
+        }
+        val = docs;
+      } else if (val.getClass().isArray()) {
+        Object[] objs = (Object[]) val;
+        SolrInputDocument[] docs = (SolrInputDocument[]) Array.newInstance(SolrInputDocument.class, objs.length);
+        for (int i = 0; i < objs.length; i++) {
+          docs[i] = toSolrInputDocument(objs[i]);
+        }
+        val = docs;
+      } else {
+        val = toSolrInputDocument(val);
+      }
+    }
+
+    doc.addField(field.name, val);
+  }
+
+  private boolean isMappedObject(Object obj) {
+    Object first;
+    if (obj instanceof Collection) {
+      @SuppressWarnings({"rawtypes"})
+      Collection collection = (Collection) obj;
+      if (collection.isEmpty()) {
+        return false;
+      }
+      first = collection.iterator().next();
+    } else if (obj.getClass().isArray()) {
+      Object[] objs = (Object[]) obj;
+      if (objs.length == 0) {
+        return false;
+      }
+      first = objs[0];
+    } else {
+      first = obj;
+    }
+
+    return isMappedClass(first.getClass());
+  }
+
+  private boolean isMappedClass(Class clazz) {
+    return !getDocFields(clazz).isEmpty();
   }
 
   private void addChild(Object obj, DocField field, SolrInputDocument doc) {
@@ -249,6 +302,16 @@ public class DocumentObjectBinder {
         if (annotation.child()) {
           populateChild(field.getGenericType());
         } else {
+          try {
+            Class parameterizedType = Class.forName(((ParameterizedType) field.getGenericType())
+                    .getActualTypeArguments()[0].getTypeName());
+            if (isMappedClass(parameterizedType)) {
+              type = parameterizedType;
+              return;
+            }
+          } catch (ClassNotFoundException e) {
+            throw new BindingException("Invalid type information available for " + (field == null ? setter : field));
+          }
           type = Object.class;
         }
       } else if (type == byte[].class) {
@@ -333,8 +396,18 @@ public class DocumentObjectBinder {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Object getFieldValue(SolrDocument solrDocument) {
-      if (child != null) {
-        List<SolrDocument> children = solrDocument.getChildDocuments();
+      if (child != null || isMappedClass(type)) {
+        List<SolrDocument> children = null;
+        if(solrDocument.hasChildDocuments()){
+          children = solrDocument.getChildDocuments();
+        } else if (solrDocument.getFieldValue(name) != null){
+          if (isList || isArray) {
+            children = (List<SolrDocument>) solrDocument.getFieldValue(name);
+          } else {
+            children = new ArrayList<>();
+            children.add((SolrDocument) solrDocument.getFieldValue(name));
+          }
+        }
         if (children == null || children.isEmpty()) return null;
         if (isList) {
           ArrayList list = new ArrayList(children.size());
